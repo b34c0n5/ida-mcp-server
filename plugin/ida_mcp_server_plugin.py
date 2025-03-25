@@ -218,8 +218,8 @@ class IDAMCPServer:
                     elif request_type == "rename_function":
                         result = self.rename_function(request_data)
                         response.update(result)
-                    elif request_type == "add_comment":
-                        result = self.add_comment(request_data)
+                    elif request_type == "add_assembly_comment":
+                        result = self.add_assembly_comment(request_data)
                         response.update(result)
                     elif request_type == "rename_local_variable":
                         result = self.rename_local_variable(request_data)
@@ -229,8 +229,8 @@ class IDAMCPServer:
                         response.update(result)
                     elif request_type == "ping":
                         response["status"] = "pong"
-                    elif request_type == "add_pseudocode_line_comment":
-                        result = self.add_pseudocode_line_comment(request_data)
+                    elif request_type == "add_pseudocode_comment":
+                        result = self.add_pseudocode_comment(request_data)
                         response.update(result)
                     elif request_type == "refresh_view":
                         result = self.refresh_view(request_data)
@@ -646,19 +646,19 @@ class IDAMCPServer:
             traceback.print_exc()
             return {"success": False, "message": str(e)}
 
-    def add_comment(self, data):
-        """添加注释"""
+    def add_assembly_comment(self, data):
+        """添加汇编注释"""
         address = data.get("address", "")
         comment = data.get("comment", "")
         is_repeatable = data.get("is_repeatable", False)
         
         # 使用SyncWrapper来获取结果
         wrapper = IDASyncWrapper()
-        idaapi.execute_sync(lambda: wrapper(self._add_comment_impl, address, comment, is_repeatable), idaapi.MFF_WRITE)
+        idaapi.execute_sync(lambda: wrapper(self._add_assembly_comment_impl, address, comment, is_repeatable), idaapi.MFF_WRITE)
         return wrapper.result
 
-    def _add_comment_impl(self, address, comment, is_repeatable):
-        """在IDA主线程中实现添加注释的逻辑"""
+    def _add_assembly_comment_impl(self, address, comment, is_repeatable):
+        """在IDA主线程中实现添加汇编注释的逻辑"""
         try:
             # 将地址字符串转换为整数
             if isinstance(address, str):
@@ -685,12 +685,12 @@ class IDAMCPServer:
                 # 刷新视图
                 self._refresh_view_impl()
                 comment_type = "repeatable" if is_repeatable else "regular"
-                return {"success": True, "message": f"Added {comment_type} comment at address {hex(addr)}"}
+                return {"success": True, "message": f"Added {comment_type} assembly comment at address {hex(addr)}"}
             else:
-                return {"success": False, "message": f"Failed to add comment at address {hex(addr)}"}
+                return {"success": False, "message": f"Failed to add assembly comment at address {hex(addr)}"}
         
         except Exception as e:
-            print(f"Error adding comment: {str(e)}")
+            print(f"Error adding assembly comment: {str(e)}")
             traceback.print_exc()
             return {"success": False, "message": str(e)}
 
@@ -817,32 +817,31 @@ class IDAMCPServer:
             traceback.print_exc()
             return {"success": False, "message": str(e)}
 
-    def add_pseudocode_line_comment(self, data):
-        """Add a comment to a specific line in the function's decompiled pseudocode"""
+    def add_pseudocode_comment(self, data):
+        """Add a comment to a specific address in the function's decompiled pseudocode"""
         function_name = data.get("function_name", "")
-        line_number = data.get("line_number", 0)
+        address = data.get("address", "")
         comment = data.get("comment", "")
         is_repeatable = data.get("is_repeatable", False)
         
         # Use SyncWrapper to get results
         wrapper = IDASyncWrapper()
         idaapi.execute_sync(
-            lambda: wrapper(self._add_pseudocode_line_comment_impl, function_name, line_number, comment, is_repeatable),
+            lambda: wrapper(self._add_pseudocode_comment_impl, function_name, address, comment, is_repeatable),
             idaapi.MFF_WRITE
         )
         return wrapper.result
 
-    def _add_pseudocode_line_comment_impl(self, function_name, line_number, comment, is_repeatable):
+    def _add_pseudocode_comment_impl(self, function_name, address, comment, is_repeatable):
         """
-        Implement adding a comment to a specific line of pseudocode in the IDA main thread
-        Warning: incomplete implementation, only works for simple cases
+        Implement adding a comment to a specific address in pseudocode
         """
         try:
             # Parameter validation
             if not function_name:
                 return {"success": False, "message": "Function name cannot be empty"}
-            if line_number <= 0:
-                return {"success": False, "message": "Line number must be positive"}
+            if not address:
+                return {"success": False, "message": "Address cannot be empty"}
             if not comment:
                 # Allow empty comment to clear existing comment
                 comment = ""
@@ -866,49 +865,49 @@ class IDAMCPServer:
             if not cfunc:
                 return {"success": False, "message": f"Failed to decompile function '{function_name}'"}
             
-            # Get pseudocode
-            pseudocode = cfunc.get_pseudocode()
-            if not pseudocode or pseudocode.size() == 0:
-                return {"success": False, "message": "No pseudocode generated"}
-            
-            # Check if line number is valid
-            if line_number > pseudocode.size():
-                return {"success": False, "message": f"Line number {line_number} is out of range (max is {pseudocode.size()})"}
-            
-            # Line numbers in the API are 0-based, but user input is 1-based
-            actual_line_index = line_number - 1
-            
-            # Get the ctree item for the specified line
-            line_item = pseudocode[actual_line_index]
-            tree_item = cfunc.treeitems[actual_line_index]
-            # print(cfunc.treeitems.count())
-            print(tree_item, tree_item.ea)
-            if not line_item:
-                return {"success": False, "message": f"Cannot access line {line_number}"}
+            # Convert address string to integer
+            if isinstance(address, str):
+                if address.startswith("0x"):
+                    addr = int(address, 16)
+                else:
+                    try:
+                        addr = int(address, 16)  # Try hex
+                    except ValueError:
+                        try:
+                            addr = int(address)  # Try decimal
+                        except ValueError:
+                            return {"success": False, "message": f"Invalid address format: {address}"}
+            else:
+                addr = address
+                
+            # Check if address is valid
+            if addr == idaapi.BADADDR or not ida_bytes.is_loaded(addr):
+                return {"success": False, "message": f"Invalid or unloaded address: {hex(addr)}"}
+                
+            # Check if address is within the function
+            if not (func.start_ea <= addr < func.end_ea):
+                return {"success": False, "message": f"Address {hex(addr)} is not within function '{function_name}'"}
             
             # Create a treeloc_t object for the comment location
             loc = ida_hexrays.treeloc_t()
-            loc.ea = tree_item.ea
-            loc.itp = ida_hexrays.ITP_SEMI  # Comment position (can adjust as needed)
-
-            for tree_item in cfunc.treeitems:
-                print(tree_item.index)
+            loc.ea = addr
+            loc.itp = ida_hexrays.ITP_SEMI  # Comment position
             
             # Set the comment
             cfunc.set_user_cmt(loc, comment)
             cfunc.save_user_cmts()
             
-            # 刷新视图
+            # Refresh view
             self._refresh_view_impl()
 
             comment_type = "repeatable" if is_repeatable else "regular"
             return {
                 "success": True, 
-                "message": f"Added {comment_type} comment to line {line_number} at address {hex(line_ea)}"
+                "message": f"Added {comment_type} comment at address {hex(addr)} in function '{function_name}'"
             }    
         
         except Exception as e:
-            print(f"Error adding pseudocode line comment: {str(e)}")
+            print(f"Error adding pseudocode comment: {str(e)}")
             traceback.print_exc()
             return {"success": False, "message": str(e)}
 

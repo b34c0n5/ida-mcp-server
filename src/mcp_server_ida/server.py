@@ -43,7 +43,7 @@ class RenameFunction(BaseModel):
     old_name: str
     new_name: str
 
-class AddComment(BaseModel):
+class AddAssemblyComment(BaseModel):
     address: str  # 可以是十六进制地址字符串
     comment: str
     is_repeatable: bool = False  # 是否为可重复注释
@@ -53,9 +53,9 @@ class AddFunctionComment(BaseModel):
     comment: str
     is_repeatable: bool = False  # 是否为可重复注释
 
-class AddPseudocodeLineComment(BaseModel):
+class AddPseudocodeComment(BaseModel):
     function_name: str
-    line_number: int  # Line number in the pseudocode
+    address: str  # Address in the pseudocode
     comment: str
     is_repeatable: bool = False  # Whether comment should be repeated at all occurrences
 
@@ -68,9 +68,9 @@ class IDATools(str, Enum):
     RENAME_LOCAL_VARIABLE = "ida_rename_local_variable"
     RENAME_GLOBAL_VARIABLE = "ida_rename_global_variable"
     RENAME_FUNCTION = "ida_rename_function"
-    ADD_COMMENT = "ida_add_comment"
+    ADD_ASSEMBLY_COMMENT = "ida_add_assembly_comment"
     ADD_FUNCTION_COMMENT = "ida_add_function_comment"
-    ADD_PSEUDOCODE_LINE_COMMENT = "ida_add_pseudocode_line_comment"
+    ADD_PSEUDOCODE_COMMENT = "ida_add_pseudocode_comment"
 
 # IDA Pro通信处理器
 class IDAProCommunicator:
@@ -453,28 +453,28 @@ class IDAProFunctions:
             self.logger.error(f"重命名函数时出错: {str(e)}", exc_info=True)
             return f"Error renaming function from '{old_name}' to '{new_name}': {str(e)}"
 
-    def add_comment(self, address: str, comment: str, is_repeatable: bool = False) -> str:
-        """添加注释"""
+    def add_assembly_comment(self, address: str, comment: str, is_repeatable: bool = False) -> str:
+        """添加汇编注释"""
         try:
             response = self.communicator.send_request(
-                "add_comment", 
+                "add_assembly_comment", 
                 {"address": address, "comment": comment, "is_repeatable": is_repeatable}
             )
             
             if "error" in response:
-                return f"Error adding comment at address '{address}': {response['error']}"
+                return f"Error adding assembly comment at address '{address}': {response['error']}"
             
             success = response.get("success", False)
             message = response.get("message", "")
             
             if success:
                 comment_type = "repeatable" if is_repeatable else "regular"
-                return f"Successfully added {comment_type} comment at address '{address}': {message}"
+                return f"Successfully added {comment_type} assembly comment at address '{address}': {message}"
             else:
-                return f"Failed to add comment at address '{address}': {message}"
+                return f"Failed to add assembly comment at address '{address}': {message}"
         except Exception as e:
-            self.logger.error(f"添加注释时出错: {str(e)}", exc_info=True)
-            return f"Error adding comment at address '{address}': {str(e)}"
+            self.logger.error(f"添加汇编注释时出错: {str(e)}", exc_info=True)
+            return f"Error adding assembly comment at address '{address}': {str(e)}"
 
     def add_function_comment(self, function_name: str, comment: str, is_repeatable: bool = False) -> str:
         """添加函数注释"""
@@ -499,33 +499,33 @@ class IDAProFunctions:
             self.logger.error(f"添加函数注释时出错: {str(e)}", exc_info=True)
             return f"Error adding comment to function '{function_name}': {str(e)}"
 
-    def add_pseudocode_line_comment(self, function_name: str, line_number: int, comment: str, is_repeatable: bool = False) -> str:
-        """Add a comment to a specific line in the function's decompiled pseudocode"""
+    def add_pseudocode_comment(self, function_name: str, address: str, comment: str, is_repeatable: bool = False) -> str:
+        """Add a comment to a specific address in the function's decompiled pseudocode"""
         try:
             response = self.communicator.send_request(
-                "add_pseudocode_line_comment",
+                "add_pseudocode_comment",
                 {
                     "function_name": function_name,
-                    "line_number": line_number,
+                    "address": address,
                     "comment": comment,
                     "is_repeatable": is_repeatable
                 }
             )
             
             if "error" in response:
-                return f"Error adding comment to line {line_number} in function '{function_name}': {response['error']}"
+                return f"Error adding comment at address {address} in function '{function_name}': {response['error']}"
             
             success = response.get("success", False)
             message = response.get("message", "")
             
             if success:
                 comment_type = "repeatable" if is_repeatable else "regular"
-                return f"Successfully added {comment_type} comment to line {line_number} in function '{function_name}': {message}"
+                return f"Successfully added {comment_type} comment at address {address} in function '{function_name}': {message}"
             else:
-                return f"Failed to add comment to line {line_number} in function '{function_name}': {message}"
+                return f"Failed to add comment at address {address} in function '{function_name}': {message}"
         except Exception as e:
-            self.logger.error(f"添加伪代码行注释时出错: {str(e)}", exc_info=True)
-            return f"Error adding comment to line {line_number} in function '{function_name}': {str(e)}"
+            self.logger.error(f"添加伪代码注释时出错: {str(e)}", exc_info=True)
+            return f"Error adding comment at address {address} in function '{function_name}': {str(e)}"
 
 
 async def serve() -> None:
@@ -592,9 +592,9 @@ async def serve() -> None:
                 inputSchema=RenameFunction.schema(),
             ),
             Tool(
-                name=IDATools.ADD_COMMENT,
-                description="Add a comment at a specific address in the IDA database",
-                inputSchema=AddComment.schema(),
+                name=IDATools.ADD_ASSEMBLY_COMMENT,
+                description="Add a comment at a specific address in the assembly view of the IDA database",
+                inputSchema=AddAssemblyComment.schema(),
             ),
             Tool(
                 name=IDATools.ADD_FUNCTION_COMMENT,
@@ -602,9 +602,9 @@ async def serve() -> None:
                 inputSchema=AddFunctionComment.schema(),
             ),
             Tool(
-                name=IDATools.ADD_PSEUDOCODE_LINE_COMMENT,
-                description="Add a comment to a specific line in the function's decompiled pseudocode",
-                inputSchema=AddPseudocodeLineComment.schema(),
+                name=IDATools.ADD_PSEUDOCODE_COMMENT,
+                description="Add a comment to a specific address in the function's decompiled pseudocode",
+                inputSchema=AddPseudocodeComment.schema(),
             ),
         ]
 
@@ -686,8 +686,8 @@ async def serve() -> None:
                         text=result
                     )]
 
-                case IDATools.ADD_COMMENT:
-                    result = ida_functions.add_comment(
+                case IDATools.ADD_ASSEMBLY_COMMENT:
+                    result = ida_functions.add_assembly_comment(
                         arguments["address"], 
                         arguments["comment"], 
                         arguments.get("is_repeatable", False)
@@ -708,10 +708,10 @@ async def serve() -> None:
                         text=result
                     )]
 
-                case IDATools.ADD_PSEUDOCODE_LINE_COMMENT:
-                    result = ida_functions.add_pseudocode_line_comment(
+                case IDATools.ADD_PSEUDOCODE_COMMENT:
+                    result = ida_functions.add_pseudocode_comment(
                         arguments["function_name"],
-                        arguments["line_number"],
+                        arguments["address"],
                         arguments["comment"],
                         arguments.get("is_repeatable", False)
                     )
