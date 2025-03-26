@@ -5,7 +5,7 @@ import struct
 import threading
 import traceback
 import time
-from ida_mcp_core import IDAMCPCore
+from ida_mcp_server_plugin.ida_mcp_core import IDAMCPCore
 
 PLUGIN_NAME = "IDA MCP Server"
 PLUGIN_HOTKEY = "Ctrl-Alt-M"
