@@ -891,7 +891,7 @@ class IDAMCPServer:
             # Create a treeloc_t object for the comment location
             loc = ida_hexrays.treeloc_t()
             loc.ea = addr
-            loc.itp = ida_hexrays.ITP_SEMI  # Comment position
+            loc.itp = ida_hexrays.ITP_BLOCK1  # Comment position
             
             # Set the comment
             cfunc.set_user_cmt(loc, comment)
