@@ -5,6 +5,7 @@ import struct
 import threading
 import traceback
 import time
+from typing import Optional, Dict, Any, List, Tuple, Union, Set, Type, cast
 from ida_mcp_server_plugin.ida_mcp_core import IDAMCPCore
 
 PLUGIN_NAME = "IDA MCP Server"
@@ -18,25 +19,25 @@ DEFAULT_PORT = 5000
 
 class IDACommunicator:
     """IDA Communication class"""
-    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
-        self.host = host
-        self.port = port
-        self.socket = None
+    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT):
+        self.host: str = host
+        self.port: int = port
+        self.socket: Optional[socket.socket] = None
     
-    def connect(self):
+    def connect(self) -> None:
         pass
 
 class IDAMCPServer:
-    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
-        self.host = host
-        self.port = port
-        self.server_socket = None
-        self.running = False
-        self.thread = None
-        self.client_counter = 0
-        self.core = IDAMCPCore()
+    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT):
+        self.host: str = host
+        self.port: int = port
+        self.server_socket: Optional[socket.socket] = None
+        self.running: bool = False
+        self.thread: Optional[threading.Thread] = None
+        self.client_counter: int = 0
+        self.core: IDAMCPCore = IDAMCPCore()
     
-    def start(self):
+    def start(self) -> bool:
         """Start Socket server"""
         if self.running:
             print("MCP Server already running")
@@ -61,7 +62,7 @@ class IDAMCPServer:
             traceback.print_exc()
             return False
     
-    def stop(self):
+    def stop(self) -> None:
         """Stop Socket server"""
         if not self.running:
             print("MCP Server is not running, no need to stop")
@@ -86,36 +87,36 @@ class IDAMCPServer:
             
         print("MCP Server stopped")
     
-    def send_message(self, client_socket, data: bytes) -> None:
+    def send_message(self, client_socket: socket.socket, data: bytes) -> None:
         """Send message with length prefix"""
-        length = len(data)
-        length_bytes = struct.pack('!I', length)  # 4-byte length prefix
+        length: int = len(data)
+        length_bytes: bytes = struct.pack('!I', length)  # 4-byte length prefix
         client_socket.sendall(length_bytes + data)
 
-    def receive_message(self, client_socket) -> bytes:
+    def receive_message(self, client_socket: socket.socket) -> bytes:
         """Receive message with length prefix"""
         # Receive 4-byte length prefix
-        length_bytes = self.receive_exactly(client_socket, 4)
+        length_bytes: bytes = self.receive_exactly(client_socket, 4)
         if not length_bytes:
             raise ConnectionError("Connection closed")
             
-        length = struct.unpack('!I', length_bytes)[0]
+        length: int = struct.unpack('!I', length_bytes)[0]
         
         # Receive message body
-        data = self.receive_exactly(client_socket, length)
+        data: bytes = self.receive_exactly(client_socket, length)
         return data
 
-    def receive_exactly(self, client_socket, n: int) -> bytes:
+    def receive_exactly(self, client_socket: socket.socket, n: int) -> bytes:
         """Receive exactly n bytes of data"""
-        data = b''
+        data: bytes = b''
         while len(data) < n:
-            chunk = client_socket.recv(min(n - len(data), 4096))
+            chunk: bytes = client_socket.recv(min(n - len(data), 4096))
             if not chunk:  # Connection closed
                 raise ConnectionError("Connection closed, unable to receive complete data")
             data += chunk
         return data
     
-    def server_loop(self):
+    def server_loop(self) -> None:
         """Server main loop"""
         print("Server loop started")
         while self.running:
@@ -124,11 +125,11 @@ class IDAMCPServer:
                 try:
                     client_socket, client_address = self.server_socket.accept()
                     self.client_counter += 1
-                    client_id = self.client_counter
+                    client_id: int = self.client_counter
                     print(f"Client #{client_id} connected from {client_address}")
                     
                     # Handle client request - use thread to support multiple clients
-                    client_thread = threading.Thread(
+                    client_thread: threading.Thread = threading.Thread(
                         target=self.handle_client,
                         args=(client_socket, client_id)
                     )
@@ -155,7 +156,7 @@ class IDAMCPServer:
         
         print("Server loop ended")
     
-    def handle_client(self, client_socket, client_id):
+    def handle_client(self, client_socket: socket.socket, client_id: int) -> None:
         """Handle client requests"""
         try:
             # Set timeout
@@ -164,29 +165,35 @@ class IDAMCPServer:
             while self.running:
                 try:
                     # Receive message
-                    data = self.receive_message(client_socket)
+                    data: bytes = self.receive_message(client_socket)
                     
                     # Parse request
-                    request = json.loads(data.decode('utf-8'))
-                    request_type = request.get('type')
-                    request_data = request.get('data', {})
-                    request_id = request.get('id', 'unknown')
-                    request_count = request.get('count', -1)
+                    request: Dict[str, Any] = json.loads(data.decode('utf-8'))
+                    request_type: str = request.get('type')
+                    request_data: Dict[str, Any] = request.get('data', {})
+                    request_id: str = request.get('id', 'unknown')
+                    request_count: int = request.get('count', -1)
                     
                     print(f"Client #{client_id} request: {request_type}, ID: {request_id}, Count: {request_count}")
                     
                     # Handle different types of requests
-                    response = {
+                    response: Dict[str, Any] = {
                         "id": request_id,  # Return same request ID
                         "count": request_count  # Return same request count
                     }
                     
-                    if request_type == "get_function_assembly":
-                        response.update(self.core.get_function_assembly(request_data.get("function_name", "")))
-                    elif request_type == "get_function_decompiled":
-                        response.update(self.core.get_function_decompiled(request_data.get("function_name", "")))
-                    elif request_type == "get_global_variable":
-                        response.update(self.core.get_global_variable(request_data.get("variable_name", "")))
+                    if request_type == "get_function_assembly_by_name":
+                        response.update(self.core.get_function_assembly_by_name(request_data.get("function_name", "")))
+                    elif request_type == "get_function_assembly_by_address":
+                        response.update(self.core.get_function_assembly_by_address(request_data.get("address", 0)))
+                    elif request_type == "get_function_decompiled_by_name":
+                        response.update(self.core.get_function_decompiled_by_name(request_data.get("function_name", "")))
+                    elif request_type == "get_function_decompiled_by_address":
+                        response.update(self.core.get_function_decompiled_by_address(request_data.get("address", 0)))
+                    elif request_type == "get_global_variable_by_name":
+                        response.update(self.core.get_global_variable_by_name(request_data.get("variable_name", "")))
+                    elif request_type == "get_global_variable_by_address":
+                        response.update(self.core.get_global_variable_by_address(request_data.get("address", 0)))
                     elif request_type == "get_current_function_assembly":
                         response.update(self.core.get_current_function_assembly())
                     elif request_type == "get_current_function_decompiled":
@@ -201,6 +208,13 @@ class IDAMCPServer:
                             request_data.get("old_name", ""),
                             request_data.get("new_name", "")
                         ))
+                    # Backward compatibility with old method names
+                    elif request_type == "get_function_assembly":
+                        response.update(self.core.get_function_assembly_by_name(request_data.get("function_name", "")))
+                    elif request_type == "get_function_decompiled":
+                        response.update(self.core.get_function_decompiled_by_name(request_data.get("function_name", "")))
+                    elif request_type == "get_global_variable":
+                        response.update(self.core.get_global_variable_by_name(request_data.get("variable_name", "")))
                     elif request_type == "add_assembly_comment":
                         response.update(self.core.add_assembly_comment(
                             request_data.get("address", ""),
@@ -228,6 +242,14 @@ class IDAMCPServer:
                             request_data.get("comment", ""),
                             request_data.get("is_repeatable", False)
                         ))
+                    elif request_type == "execute_script":
+                        response.update(self.core.execute_script(
+                            request_data.get("script", "")
+                        ))
+                    elif request_type == "execute_script_from_file":
+                        response.update(self.core.execute_script_from_file(
+                            request_data.get("file_path", "")
+                        ))
                     elif request_type == "refresh_view":
                         response.update(self.core.refresh_view())
                     else:
@@ -251,7 +273,7 @@ class IDAMCPServer:
                             response[key] = str(value)
                         
                     # Send response
-                    response_json = json.dumps(response).encode('utf-8')
+                    response_json: bytes = json.dumps(response).encode('utf-8')
                     self.send_message(client_socket, response_json)
                     print(f"Sent response to client #{client_id}, ID: {request_id}, Count: {request_count}")
                     
@@ -264,7 +286,7 @@ class IDAMCPServer:
                 except json.JSONDecodeError as e:
                     print(f"Invalid JSON request from client #{client_id}: {str(e)}")
                     try:
-                        response = {
+                        response: Dict[str, Any] = {
                             "error": f"Invalid JSON request: {str(e)}"
                         }
                         self.send_message(client_socket, json.dumps(response).encode('utf-8'))
@@ -274,7 +296,7 @@ class IDAMCPServer:
                     print(f"Error processing request from client #{client_id}: {str(e)}")
                     traceback.print_exc()
                     try:
-                        response = {
+                        response: Dict[str, Any] = {
                             "error": str(e)
                         }
                         self.send_message(client_socket, json.dumps(response).encode('utf-8'))
@@ -302,12 +324,12 @@ class IDAMCPPlugin(idaapi.plugin_t):
     
     def __init__(self):
         super(IDAMCPPlugin, self).__init__()
-        self.server = None
-        self.initialized = False
-        self.menu_items_added = False
+        self.server: Optional[IDAMCPServer] = None
+        self.initialized: bool = False
+        self.menu_items_added: bool = False
         print(f"IDAMCPPlugin instance created")
     
-    def init(self):
+    def init(self) -> int:
         """Plugin initialization"""
         try:
             print(f"{PLUGIN_NAME} v{PLUGIN_VERSION} by {PLUGIN_AUTHOR}")
@@ -332,7 +354,7 @@ class IDAMCPPlugin(idaapi.plugin_t):
             traceback.print_exc()
             return idaapi.PLUGIN_SKIP
     
-    def _delayed_server_start(self):
+    def _delayed_server_start(self) -> int:
         """Delayed server start to avoid initialization race conditions"""
         try:
             if not self.server or not self.server.running:
@@ -343,39 +365,39 @@ class IDAMCPPlugin(idaapi.plugin_t):
             traceback.print_exc()
         return -1  # Don't repeat
     
-    def create_menu_items(self):
+    def create_menu_items(self) -> None:
         """Create plugin menu items"""
         # Create menu items
-        menu_path = "Edit/Plugins/"
+        menu_path: str = "Edit/Plugins/"
         
         class StartServerHandler(idaapi.action_handler_t):
-            def __init__(self, plugin):
+            def __init__(self, plugin: 'IDAMCPPlugin'):
                 idaapi.action_handler_t.__init__(self)
-                self.plugin = plugin
+                self.plugin: 'IDAMCPPlugin' = plugin
             
-            def activate(self, ctx):
+            def activate(self, ctx) -> int:
                 self.plugin.start_server()
                 return 1
             
-            def update(self, ctx):
+            def update(self, ctx) -> int:
                 return idaapi.AST_ENABLE_ALWAYS
         
         class StopServerHandler(idaapi.action_handler_t):
-            def __init__(self, plugin):
+            def __init__(self, plugin: 'IDAMCPPlugin'):
                 idaapi.action_handler_t.__init__(self)
-                self.plugin = plugin
+                self.plugin: 'IDAMCPPlugin' = plugin
             
-            def activate(self, ctx):
+            def activate(self, ctx) -> int:
                 self.plugin.stop_server()
                 return 1
             
-            def update(self, ctx):
+            def update(self, ctx) -> int:
                 return idaapi.AST_ENABLE_ALWAYS
         
         try:
             # Register and add start server action
-            start_action_name = "mcp:start_server"
-            start_action_desc = idaapi.action_desc_t(
+            start_action_name: str = "mcp:start_server"
+            start_action_desc: idaapi.action_desc_t = idaapi.action_desc_t(
                 start_action_name,
                 "Start MCP Server",
                 StartServerHandler(self),
@@ -385,8 +407,8 @@ class IDAMCPPlugin(idaapi.plugin_t):
             )
             
             # Register and add stop server action
-            stop_action_name = "mcp:stop_server"
-            stop_action_desc = idaapi.action_desc_t(
+            stop_action_name: str = "mcp:stop_server"
+            stop_action_desc: idaapi.action_desc_t = idaapi.action_desc_t(
                 stop_action_name, 
                 "Stop MCP Server",
                 StopServerHandler(self),
@@ -412,7 +434,7 @@ class IDAMCPPlugin(idaapi.plugin_t):
             print(f"Error creating menu items: {str(e)}")
             traceback.print_exc()
     
-    def start_server(self):
+    def start_server(self) -> None:
         """Start server"""
         if self.server and self.server.running:
             print("MCP Server is already running")
@@ -430,7 +452,7 @@ class IDAMCPPlugin(idaapi.plugin_t):
             print(f"Error starting server: {str(e)}")
             traceback.print_exc()
     
-    def stop_server(self):
+    def stop_server(self) -> None:
         """Stop server"""
         if not self.server:
             print("MCP Server instance does not exist")
@@ -447,7 +469,7 @@ class IDAMCPPlugin(idaapi.plugin_t):
             print(f"Error stopping server: {str(e)}")
             traceback.print_exc()
     
-    def run(self, arg):
+    def run(self, arg) -> None:
         """Execute when hotkey is pressed"""
         if not self.initialized:
             print("Plugin not initialized")
@@ -465,7 +487,7 @@ class IDAMCPPlugin(idaapi.plugin_t):
             print(f"Error in run method: {str(e)}")
             traceback.print_exc()
     
-    def term(self):
+    def term(self) -> None:
         """Plugin termination"""
         try:
             if self.server and self.server.running:
@@ -477,5 +499,5 @@ class IDAMCPPlugin(idaapi.plugin_t):
             traceback.print_exc()
 
 # Register plugin
-def PLUGIN_ENTRY():
+def PLUGIN_ENTRY() -> IDAMCPPlugin:
     return IDAMCPPlugin()
