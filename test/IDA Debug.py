@@ -4,52 +4,6 @@ import idaapi
 import idautils
 import idc
 import ida_funcs
-
-# class FunctionDump(object):
-#     def __init__(self):
-#         self.c_functions = []
-#         self.c_functions_lookup = {}
-        
-#     def parse(self):
-#         for func_ea in idautils.Functions():
-#             if self.is_user_defined_c_function(func_ea):
-#                 function_name = ida_funcs.get_func_name(func_ea)
-#                 self.c_functions.append(function_name)
-#                 self.c_functions_lookup[function_name] = func_ea
-                
-#     def is_user_defined_c_function(self, ea):
-#         flags = idc.get_func_attr(ea, idc.FUNCATTR_FLAGS)
-
-#         # Check if it's a library function
-#         if flags & idaapi.FUNC_LIB:
-#             return False
-
-#         # Check if it's a thunk function
-#         if flags & idaapi.FUNC_THUNK:
-#             return False
-
-#         func_name = idc.get_func_name(ea)
-
-#         # Exclude Objective-C methods (usually start with +/- or contain ::)
-#         if func_name.startswith(('+', '-')) or '::' in func_name:
-#             return False
-
-#         # Exclude common system function prefixes
-#         system_prefixes = ['block_invoke', 'helper_block', 'Block_byref']
-#         if any(func_name.__contains__(prefix) for prefix in system_prefixes):
-#             return False
-
-#         return True
-
-
-
-# dump = FunctionDump()
-# dump.parse()
-
-# print(f"Found {len(dump.c_functions)} user-defined C functions:")
-# for func_name in dump.c_functions:
-#     print(f"Function: {func_name}")
-    
 import idaapi
 import ida_name
 import ida_hexrays
@@ -171,22 +125,21 @@ def _add_pseudocode_line_comment_impl(function_name, line_number, comment, is_re
         
         # Line numbers in the API are 0-based, but user input is 1-based
         actual_line_index = line_number - 1
-        
+        # print(pseudocode[actual_line_index])
         # Get the ctree item for the specified line
         line_item = pseudocode[actual_line_index]
         tree_item = cfunc.treeitems[actual_line_index]
-        # print(cfunc.treeitems.count())
-        print(tree_item, tree_item.ea)
+        eamap = cfunc.get_eamap()
+        
         if not line_item:
             return {"success": False, "message": f"Cannot access line {line_number}"}
         
         # Create a treeloc_t object for the comment location
         loc = ida_hexrays.treeloc_t()
-        loc.ea = tree_item.ea
-        loc.itp = ida_hexrays.ITP_SEMI  # Comment position (can adjust as needed)
+        loc.ea = eamap[6452480528][0].ea
+        loc.itp = ida_hexrays.ITP_BLOCK1  # Comment position (can adjust as needed)
 
-        for tree_item in cfunc.treeitems:
-            print(tree_item.index)
+
         
         # Set the comment
         cfunc.set_user_cmt(loc, comment)
@@ -252,5 +205,5 @@ def _add_pseudocode_line_comment_impl(function_name, line_number, comment, is_re
         traceback.print_exc()
         return {"success": False, "message": str(e)}
         
-print(_add_pseudocode_line_comment_impl("+[_LSDService XPCConnectionToService]", 1, "TestC", True))
+print(_add_pseudocode_line_comment_impl("+[_LSDService XPCConnectionToService]", 8, "Tes12tCA", True))
 # idapro.close_database()

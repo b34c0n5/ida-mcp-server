@@ -264,7 +264,7 @@ class IDAMCPServer:
                     print(f"Connection with client #{client_id} lost: {str(e)}")
                     return
                 except socket.timeout:
-                    print(f"Socket timeout with client #{client_id}")
+                    # print(f"Socket timeout with client #{client_id}")
                     continue
                 except json.JSONDecodeError as e:
                     print(f"Invalid JSON request from client #{client_id}: {str(e)}")
@@ -953,7 +953,7 @@ class IDAMCPServer:
 class IDAMCPPlugin(idaapi.plugin_t):
     flags = idaapi.PLUGIN_KEEP
     comment = "IDA MCP Server Plugin"
-    help = "Provides MCP server functionality for IDAPro"
+    help = "Provides MCP server functionality for IDA"
     wanted_name = PLUGIN_NAME
     wanted_hotkey = PLUGIN_HOTKEY
     
@@ -964,7 +964,6 @@ class IDAMCPPlugin(idaapi.plugin_t):
         self.menu_items_added = False
         print(f"IDAMCPPlugin instance created")
     
-    # ... 其余代码与之前相同，只需将IdaMcp更改为IDAMCP ...
     def init(self):
         """插件初始化"""
         try:
