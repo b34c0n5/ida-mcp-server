@@ -147,49 +147,26 @@ class IDAMCPCore:
     def _get_function_assembly_by_address_internal(self, address: int) -> Dict[str, Any]:
         """Internal implementation for get_function_assembly_by_address without sync wrapper"""
         try:
-            # Get function from address
-            func = idaapi.get_func(address)
+            # Get function object
+            func = ida_funcs.get_func(address)
             if not func:
-                return {"error": f"No function found at address 0x{address:X}"}
+                return {"error": f"Invalid function at {hex(address)}"}
             
-            # Get function name
-            func_name = idaapi.get_func_name(func.start_ea)
+            # Collect all assembly instructions
+            assembly_lines = []
+            for instr_addr in idautils.FuncItems(address):
+                disasm = idc.GetDisasm(instr_addr)
+                assembly_lines.append(f"{hex(instr_addr)}: {disasm}")
             
-            # Generate assembly
-            assembly = []
-            
-            # Create instruction iterator
-            instruction_iterator = idaapi.func_item_iterator_t(func)
-            
-            # Get first instruction
-            address = instruction_iterator.first()
-            
-            # Iterate through all instructions
-            while address != idaapi.BADADDR:
-                # Get disassembly line
-                disasm_line = idaapi.generate_disasm_line(address, 0)
+            if not assembly_lines:
+                return {"error": "No assembly instructions found"}
                 
-                # Get comment, if any
-                comment = idaapi.get_cmt(address, 0)  # 0 for non-repeatable comment
-                if not comment:
-                    comment = idaapi.get_cmt(address, 1)  # 1 for repeatable comment
-                
-                # Add line with comment
-                if comment:
-                    assembly.append(f"{disasm_line} ; {comment}")
-                else:
-                    assembly.append(disasm_line)
-                
-                # Move to next instruction
-                address = instruction_iterator.next()
-            
-            # Join the disassembly lines
-            assembly_str = "\n".join(assembly)
-            
-            return {"assembly": assembly_str, "function_name": func_name}
+            return {"assembly": "\n".join(assembly_lines)}
         except Exception as e:
+            print(f"Error getting function assembly: {str(e)}")
             traceback.print_exc()
             return {"error": str(e)}
+
 
     @idaread
     def get_function_decompiled_by_name(self, function_name: str) -> Dict[str, Any]:
