@@ -32,7 +32,7 @@ python -m mcp_server_ida
 
 ### IDA-Side
 
-Copy repository/plugin/ida_mcp_server_plugin.py into IDAs plugin directory.
+Copy repository/plugin/ida_mcp_server_plugin.py into IDAs plugin directory (`~/.idapro/plugins`).
 
 
 ## Configuration
