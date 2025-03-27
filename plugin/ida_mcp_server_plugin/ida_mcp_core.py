@@ -128,7 +128,7 @@ class IDAMCPCore:
                 return {"error": f"Function '{function_name}' not found"}
             
             # Call address-based implementation
-            result = self.get_function_assembly_by_address(func.start_ea)
+            result = self._get_function_assembly_by_address_internal(func.start_ea)
             
             # If successful, add function name to result
             if "error" not in result:
@@ -142,6 +142,10 @@ class IDAMCPCore:
     @idaread
     def get_function_assembly_by_address(self, address: int) -> Dict[str, Any]:
         """Get assembly code for a function by its address"""
+        return self._get_function_assembly_by_address_internal(address)
+        
+    def _get_function_assembly_by_address_internal(self, address: int) -> Dict[str, Any]:
+        """Internal implementation for get_function_assembly_by_address without sync wrapper"""
         try:
             # Get function from address
             func = idaapi.get_func(address)
@@ -196,8 +200,8 @@ class IDAMCPCore:
             if func_addr == idaapi.BADADDR:
                 return {"error": f"Function '{function_name}' not found"}
             
-            # Call address-based implementation
-            result = self.get_function_decompiled_by_address(func_addr)
+            # Call internal implementation without decorator
+            result = self._get_function_decompiled_by_address_internal(func_addr)
             
             # If successful, add function name to result
             if "error" not in result:
@@ -211,6 +215,10 @@ class IDAMCPCore:
     @idaread
     def get_function_decompiled_by_address(self, address: int) -> Dict[str, Any]:
         """Get decompiled code for a function by its address"""
+        return self._get_function_decompiled_by_address_internal(address)
+    
+    def _get_function_decompiled_by_address_internal(self, address: int) -> Dict[str, Any]:
+        """Internal implementation for get_function_decompiled_by_address without sync wrapper"""
         try:
             # Get function from address
             func = idaapi.get_func(address)
@@ -257,8 +265,8 @@ class IDAMCPCore:
             if curr_addr == idaapi.BADADDR:
                 return {"error": "No valid cursor position"}
             
-            # Use the address-based implementation
-            return self.get_function_assembly_by_address(curr_addr)
+            # Use the internal implementation without decorator
+            return self._get_function_assembly_by_address_internal(curr_addr)
         except Exception as e:
             traceback.print_exc()
             return {"error": str(e)}
@@ -272,8 +280,8 @@ class IDAMCPCore:
             if curr_addr == idaapi.BADADDR:
                 return {"error": "No valid cursor position"}
             
-            # Use the address-based implementation
-            return self.get_function_decompiled_by_address(curr_addr)
+            # Use the internal implementation without decorator
+            return self._get_function_decompiled_by_address_internal(curr_addr)
         except Exception as e:
             traceback.print_exc()
             return {"error": str(e)}
@@ -287,8 +295,8 @@ class IDAMCPCore:
             if var_addr == idaapi.BADADDR:
                 return {"error": f"Global variable '{variable_name}' not found"}
             
-            # Call address-based implementation
-            result = self.get_global_variable_by_address(var_addr)
+            # Call internal implementation
+            result = self._get_global_variable_by_address_internal(var_addr)
             
             # If successful, add variable name to result
             if "error" not in result and "variable_info" in result:
@@ -307,6 +315,10 @@ class IDAMCPCore:
     @idaread
     def get_global_variable_by_address(self, address: int) -> Dict[str, Any]:
         """Get global variable information by its address"""
+        return self._get_global_variable_by_address_internal(address)
+    
+    def _get_global_variable_by_address_internal(self, address: int) -> Dict[str, Any]:
+        """Internal implementation for get_global_variable_by_address without sync wrapper"""
         try:
             # Verify address is valid
             if address == idaapi.BADADDR:
@@ -375,6 +387,10 @@ class IDAMCPCore:
     @idawrite
     def rename_global_variable(self, old_name: str, new_name: str) -> Dict[str, Any]:
         """Rename a global variable"""
+        return self._rename_global_variable_internal(old_name, new_name)
+        
+    def _rename_global_variable_internal(self, old_name: str, new_name: str) -> Dict[str, Any]:
+        """Internal implementation for rename_global_variable without sync wrapper"""
         try:
             # Get variable address
             var_addr: int = ida_name.get_name_ea(0, old_name)
@@ -390,7 +406,7 @@ class IDAMCPCore:
                 return {"success": False, "message": f"Failed to rename variable, possibly due to invalid name format or other IDA restrictions"}
             
             # Refresh view
-            self.refresh_view_internal()
+            self._refresh_view_internal()
             
             return {"success": True, "message": f"Variable renamed from '{old_name}' to '{new_name}' at address {hex(var_addr)}"}
         
@@ -402,6 +418,10 @@ class IDAMCPCore:
     @idawrite
     def rename_function(self, old_name: str, new_name: str) -> Dict[str, Any]:
         """Rename a function"""
+        return self._rename_function_internal(old_name, new_name)
+        
+    def _rename_function_internal(self, old_name: str, new_name: str) -> Dict[str, Any]:
+        """Internal implementation for rename_function without sync wrapper"""
         try:
             # Get function address
             func_addr: int = ida_name.get_name_ea(0, old_name)
@@ -422,7 +442,7 @@ class IDAMCPCore:
                 return {"success": False, "message": f"Failed to rename function, possibly due to invalid name format or other IDA restrictions"}
             
             # Refresh view
-            self.refresh_view_internal()
+            self._refresh_view_internal()
             
             return {"success": True, "message": f"Function renamed from '{old_name}' to '{new_name}' at address {hex(func_addr)}"}
         
@@ -434,6 +454,10 @@ class IDAMCPCore:
     @idawrite
     def add_assembly_comment(self, address: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
         """Add an assembly comment"""
+        return self._add_assembly_comment_internal(address, comment, is_repeatable)
+        
+    def _add_assembly_comment_internal(self, address: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
+        """Internal implementation for add_assembly_comment without sync wrapper"""
         try:
             # Convert address string to integer
             addr: int
@@ -459,7 +483,7 @@ class IDAMCPCore:
             result: bool = idc.set_cmt(addr, comment, is_repeatable)
             if result:
                 # Refresh view
-                self.refresh_view_internal()
+                self._refresh_view_internal()
                 comment_type: str = "repeatable" if is_repeatable else "regular"
                 return {"success": True, "message": f"Added {comment_type} assembly comment at address {hex(addr)}"}
             else:
@@ -473,6 +497,10 @@ class IDAMCPCore:
     @idawrite
     def rename_local_variable(self, function_name: str, old_name: str, new_name: str) -> Dict[str, Any]:
         """Rename a local variable within a function"""
+        return self._rename_local_variable_internal(function_name, old_name, new_name)
+        
+    def _rename_local_variable_internal(self, function_name: str, old_name: str, new_name: str) -> Dict[str, Any]:
+        """Internal implementation for rename_local_variable without sync wrapper"""
         try:
             # Parameter validation
             if not function_name:
@@ -526,7 +554,7 @@ class IDAMCPCore:
             
             if renamed:
                 # Refresh view
-                self.refresh_view_internal()
+                self._refresh_view_internal()
                 return {"success": True, "message": f"Local variable renamed from '{old_name}' to '{new_name}' in function '{function_name}'"}
             else:
                 return {"success": False, "message": f"Failed to rename local variable from '{old_name}' to '{new_name}', possibly due to invalid name format or other IDA restrictions"}
@@ -539,6 +567,10 @@ class IDAMCPCore:
     @idawrite
     def add_function_comment(self, function_name: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
         """Add a comment to a function"""
+        return self._add_function_comment_internal(function_name, comment, is_repeatable)
+        
+    def _add_function_comment_internal(self, function_name: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
+        """Internal implementation for add_function_comment without sync wrapper"""
         try:
             # Parameter validation
             if not function_name:
@@ -567,7 +599,7 @@ class IDAMCPCore:
             
             if result:
                 # Refresh view
-                self.refresh_view_internal()
+                self._refresh_view_internal()
                 comment_type: str = "repeatable" if is_repeatable else "regular"
                 return {"success": True, "message": f"Added {comment_type} comment to function '{function_name}'"}
             else:
@@ -581,6 +613,10 @@ class IDAMCPCore:
     @idawrite
     def add_pseudocode_comment(self, function_name: str, address: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
         """Add a comment to a specific address in the function's decompiled pseudocode"""
+        return self._add_pseudocode_comment_internal(function_name, address, comment, is_repeatable)
+        
+    def _add_pseudocode_comment_internal(self, function_name: str, address: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
+        """Internal implementation for add_pseudocode_comment without sync wrapper"""
         try:
             # Parameter validation
             if not function_name:
@@ -647,7 +683,7 @@ class IDAMCPCore:
             cfunc.save_user_cmts()
             
             # Refresh view
-            self.refresh_view_internal()
+            self._refresh_view_internal()
             
             comment_type: str = "repeatable" if is_repeatable else "regular"
             return {
@@ -663,9 +699,9 @@ class IDAMCPCore:
     @idawrite
     def refresh_view(self) -> Dict[str, Any]:
         """Refresh IDA Pro view"""
-        return self.refresh_view_internal()
+        return self._refresh_view_internal()
     
-    def refresh_view_internal(self) -> Dict[str, Any]:
+    def _refresh_view_internal(self) -> Dict[str, Any]:
         """Implementation of refreshing view in IDA main thread"""
         try:
             # Refresh disassembly view
@@ -699,6 +735,10 @@ class IDAMCPCore:
     @idawrite
     def execute_script(self, script: str) -> Dict[str, Any]:
         """Execute a Python script in IDA context"""
+        return self._execute_script_internal(script)
+        
+    def _execute_script_internal(self, script: str) -> Dict[str, Any]:
+        """Internal implementation for execute_script without sync wrapper"""
         try:
             print(f"Executing script, length: {len(script) if script else 0}")
             
@@ -860,7 +900,7 @@ class IDAMCPCore:
                 
                 # Refresh view to show any changes made by script
                 print("Refreshing view")
-                self.refresh_view_internal()
+                self._refresh_view_internal()
         except Exception as e:
             print(f"Error in execute_script outer scope: {str(e)}")
             traceback.print_exc()
@@ -875,6 +915,10 @@ class IDAMCPCore:
     @idawrite
     def execute_script_from_file(self, file_path: str) -> Dict[str, Any]:
         """Execute a Python script from a file in IDA context"""
+        return self._execute_script_from_file_internal(file_path)
+        
+    def _execute_script_from_file_internal(self, file_path: str) -> Dict[str, Any]:
+        """Internal implementation for execute_script_from_file without sync wrapper"""
         try:
             # Check if file path is provided
             if not file_path or not file_path.strip():
@@ -902,8 +946,8 @@ class IDAMCPCore:
                 with open(file_path, 'r') as f:
                     script = f.read()
                 
-                # Execute script
-                return self.execute_script(script)
+                # Execute script using internal method
+                return self._execute_script_internal(script)
             except Exception as file_error:
                 print(f"Error reading or executing script file: {str(file_error)}")
                 traceback.print_exc()
