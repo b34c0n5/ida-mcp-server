@@ -48,7 +48,7 @@ class IDAMCPServer:
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
-            self.server_socket.settimeout(1.0)  # Set timeout to allow server to respond to stop requests
+            # self.server_socket.settimeout(1.0)  # Set timeout to allow server to respond to stop requests
             
             self.running = True
             self.thread = threading.Thread(target=self.server_loop)
