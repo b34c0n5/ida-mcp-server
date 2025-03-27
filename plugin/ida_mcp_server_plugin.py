@@ -252,6 +252,19 @@ class IDAMCPServer:
                         ))
                     elif request_type == "refresh_view":
                         response.update(self.core.refresh_view())
+                    elif request_type == "rename_multi_local_variables":
+                        response.update(self.core.rename_multi_local_variables(
+                            request_data.get("function_name", ""),
+                            request_data.get("rename_pairs_old2new", [])
+                        ))
+                    elif request_type == "rename_multi_global_variables":
+                        response.update(self.core.rename_multi_global_variables(
+                            request_data.get("rename_pairs_old2new", [])
+                        ))
+                    elif request_type == "rename_multi_functions":
+                        response.update(self.core.rename_multi_functions(
+                            request_data.get("rename_pairs_old2new", [])
+                        ))
                     else:
                         response["error"] = f"Unknown request type: {request_type}"
                     

@@ -52,6 +52,16 @@ class RenameFunction(BaseModel):
     old_name: str
     new_name: str
 
+class RenameMultiLocalVariables(BaseModel):
+    function_name: str
+    rename_pairs_old2new: List[Dict[str, str]]  # List of dictionaries with "old_name" and "new_name" keys
+
+class RenameMultiGlobalVariables(BaseModel):
+    rename_pairs_old2new: List[Dict[str, str]]
+
+class RenameMultiFunctions(BaseModel):
+    rename_pairs_old2new: List[Dict[str, str]]
+
 class AddAssemblyComment(BaseModel):
     address: str  # Can be a hexadecimal address string
     comment: str
@@ -86,6 +96,9 @@ class IDATools(str, Enum):
     RENAME_LOCAL_VARIABLE = "ida_rename_local_variable"
     RENAME_GLOBAL_VARIABLE = "ida_rename_global_variable"
     RENAME_FUNCTION = "ida_rename_function"
+    RENAME_MULTI_LOCAL_VARIABLES = "ida_rename_multi_local_variables"
+    RENAME_MULTI_GLOBAL_VARIABLES = "ida_rename_multi_global_variables"
+    RENAME_MULTI_FUNCTIONS = "ida_rename_multi_functions"
     ADD_ASSEMBLY_COMMENT = "ida_add_assembly_comment"
     ADD_FUNCTION_COMMENT = "ida_add_function_comment"
     ADD_PSEUDOCODE_COMMENT = "ida_add_pseudocode_comment"
@@ -105,6 +118,8 @@ class IDAProCommunicator:
         self.last_reconnect_time: float = 0
         self.reconnect_cooldown: int = 5  # seconds
         self.request_count: int = 0
+        self.default_timeout: int = 10
+        self.batch_timeout: int = 60  # it may take more time for batch operations
     
     def connect(self) -> bool:
         """Connect to IDA plugin"""
@@ -120,7 +135,7 @@ class IDAProCommunicator:
         
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.settimeout(10)  # Set timeout
+            self.sock.settimeout(self.default_timeout)
             self.sock.connect((self.host, self.port))
             self.connected = True
             self.reconnect_attempts = 0
@@ -196,60 +211,76 @@ class IDAProCommunicator:
         if not self.ensure_connection():
             return {"error": "Cannot connect to IDA Pro"}
         
-        # Add request ID
-        request_id: str = str(uuid.uuid4())
-        self.request_count += 1
-        request_count: int = self.request_count
-        
-        request: Dict[str, Any] = {
-            "id": request_id,
-            "count": request_count,
-            "type": request_type,
-            "data": data
-        }
-        
-        self.logger.debug(f"Sending request: {request_id}, type: {request_type}, count: {request_count}")
-        
         try:
-            # Send request
-            request_json: bytes = json.dumps(request).encode('utf-8')
-            self.send_message(request_json)
-            
-            # Receive response
-            response_data: Optional[bytes] = self.receive_message()
-            
-            # If no data received, assume connection is closed
-            if not response_data:
-                self.logger.warning("No data received, connection may be closed")
-                self.disconnect()
-                return {"error": "No response received from IDA Pro"}
-            
-            # Parse response
+            if request_type in ["rename_multi_local_variables", 
+                              "rename_multi_global_variables", 
+                              "rename_multi_functions"]:
+                if self.sock:
+                    self.sock.settimeout(self.batch_timeout)
+                    self.logger.debug(f"Set timeout to {self.batch_timeout}s for batch operation")
+            else:
+                if self.sock:
+                    self.sock.settimeout(self.default_timeout)
+                    self.logger.debug(f"Set timeout to {self.default_timeout}s for normal operation")
+
+            # Add request ID
+            request_id: str = str(uuid.uuid4())
+            self.request_count += 1
+            request_count: int = self.request_count
+        
+            request: Dict[str, Any] = {
+                "id": request_id,
+                "count": request_count,
+                "type": request_type,
+                "data": data
+            }
+        
+            self.logger.debug(f"Sending request: {request_id}, type: {request_type}, count: {request_count}")
+        
             try:
-                self.logger.debug(f"Received raw data length: {len(response_data)}")
-                response: Dict[str, Any] = json.loads(response_data.decode('utf-8'))
+                # Send request
+                request_json: bytes = json.dumps(request).encode('utf-8')
+                self.send_message(request_json)
+            
+                # Receive response
+                response_data: Optional[bytes] = self.receive_message()
+            
+                # If no data received, assume connection is closed
+                if not response_data:
+                    self.logger.warning("No data received, connection may be closed")
+                    self.disconnect()
+                    return {"error": "No response received from IDA Pro"}
+            
+                # Parse response
+                try:
+                    self.logger.debug(f"Received raw data length: {len(response_data)}")
+                    response: Dict[str, Any] = json.loads(response_data.decode('utf-8'))
                 
-                # Verify response ID matches
-                response_id: str = response.get("id")
-                if response_id != request_id:
-                    self.logger.warning(f"Response ID mismatch! Request ID: {request_id}, Response ID: {response_id}")
+                    # Verify response ID matches
+                    response_id: str = response.get("id")
+                    if response_id != request_id:
+                        self.logger.warning(f"Response ID mismatch! Request ID: {request_id}, Response ID: {response_id}")
                 
-                self.logger.debug(f"Received response: ID={response.get('id')}, count={response.get('count')}")
+                    self.logger.debug(f"Received response: ID={response.get('id')}, count={response.get('count')}")
                 
-                # Additional type verification
-                if not isinstance(response, dict):
-                    self.logger.error(f"Received response is not a dictionary: {type(response)}")
-                    return {"error": f"Response format error: expected dictionary, got {type(response).__name__}"}
+                    # Additional type verification
+                    if not isinstance(response, dict):
+                        self.logger.error(f"Received response is not a dictionary: {type(response)}")
+                        return {"error": f"Response format error: expected dictionary, got {type(response).__name__}"}
                 
-                return response
-            except json.JSONDecodeError as e:
-                self.logger.error(f"Failed to parse JSON response: {str(e)}")
-                return {"error": f"Invalid JSON response: {str(e)}"}
+                    return response
+                except json.JSONDecodeError as e:
+                    self.logger.error(f"Failed to parse JSON response: {str(e)}")
+                    return {"error": f"Invalid JSON response: {str(e)}"}
                 
-        except Exception as e:
-            self.logger.error(f"Error communicating with IDA Pro: {str(e)}")
-            self.disconnect()  # Disconnect after error
-            return {"error": str(e)}
+            except Exception as e:
+                self.logger.error(f"Error communicating with IDA Pro: {str(e)}")
+                self.disconnect()  # Disconnect after error
+                return {"error": str(e)}
+        finally:
+            # restore timeout
+            if self.sock:
+                self.sock.settimeout(self.default_timeout)
     
     def ping(self) -> bool:
         """Check if connection is valid"""
@@ -536,6 +567,93 @@ class IDAProFunctions:
         except Exception as e:
             self.logger.error(f"Error renaming function: {str(e)}", exc_info=True)
             return f"Error renaming function from '{old_name}' to '{new_name}': {str(e)}"
+
+    def rename_multi_local_variables(self, function_name: str, rename_pairs_old2new: List[Dict[str, str]]) -> str:
+        """Rename multiple local variables within a function at once"""
+        try:
+            response: Dict[str, Any] = self.communicator.send_request(
+                "rename_multi_local_variables", 
+                {
+                    "function_name": function_name,
+                    "rename_pairs_old2new": rename_pairs_old2new
+                }
+            )
+            
+            if "error" in response:
+                return f"Error renaming multiple local variables in function '{function_name}': {response['error']}"
+            
+            success_count: int = response.get("success_count", 0)
+            failed_pairs: List[Dict[str, str]] = response.get("failed_pairs", [])
+            
+            result_parts: List[str] = [
+                f"Successfully renamed {success_count} local variables in function '{function_name}'"
+            ]
+            
+            if failed_pairs:
+                result_parts.append("\nFailed renamings:")
+                for pair in failed_pairs:
+                    result_parts.append(f"- {pair['old_name']} → {pair['new_name']}: {pair.get('error', 'Unknown error')}")
+            
+            return "\n".join(result_parts)
+        except Exception as e:
+            self.logger.error(f"Error renaming multiple local variables: {str(e)}", exc_info=True)
+            return f"Error renaming multiple local variables in function '{function_name}': {str(e)}"
+
+    def rename_multi_global_variables(self, rename_pairs_old2new: List[Dict[str, str]]) -> str:
+        """Rename multiple global variables at once"""
+        try:
+            response: Dict[str, Any] = self.communicator.send_request(
+                "rename_multi_global_variables", 
+                {"rename_pairs_old2new": rename_pairs_old2new}
+            )
+            
+            if "error" in response:
+                return f"Error renaming multiple global variables: {response['error']}"
+            
+            success_count: int = response.get("success_count", 0)
+            failed_pairs: List[Dict[str, str]] = response.get("failed_pairs", [])
+            
+            result_parts: List[str] = [
+                f"Successfully renamed {success_count} global variables"
+            ]
+            
+            if failed_pairs:
+                result_parts.append("\nFailed renamings:")
+                for pair in failed_pairs:
+                    result_parts.append(f"- {pair['old_name']} → {pair['new_name']}: {pair.get('error', 'Unknown error')}")
+            
+            return "\n".join(result_parts)
+        except Exception as e:
+            self.logger.error(f"Error renaming multiple global variables: {str(e)}", exc_info=True)
+            return f"Error renaming multiple global variables: {str(e)}"
+
+    def rename_multi_functions(self, rename_pairs_old2new: List[Dict[str, str]]) -> str:
+        """Rename multiple functions at once"""
+        try:
+            response: Dict[str, Any] = self.communicator.send_request(
+                "rename_multi_functions", 
+                {"rename_pairs_old2new": rename_pairs_old2new}
+            )
+            
+            if "error" in response:
+                return f"Error renaming multiple functions: {response['error']}"
+            
+            success_count: int = response.get("success_count", 0)
+            failed_pairs: List[Dict[str, str]] = response.get("failed_pairs", [])
+            
+            result_parts: List[str] = [
+                f"Successfully renamed {success_count} functions"
+            ]
+            
+            if failed_pairs:
+                result_parts.append("\nFailed renamings:")
+                for pair in failed_pairs:
+                    result_parts.append(f"- {pair['old_name']} → {pair['new_name']}: {pair.get('error', 'Unknown error')}")
+            
+            return "\n".join(result_parts)
+        except Exception as e:
+            self.logger.error(f"Error renaming multiple functions: {str(e)}", exc_info=True)
+            return f"Error renaming multiple functions: {str(e)}"
 
     def add_assembly_comment(self, address: str, comment: str, is_repeatable: bool = False) -> str:
         """Add an assembly comment"""
@@ -853,6 +971,21 @@ async def serve() -> None:
                 inputSchema=RenameFunction.schema(),
             ),
             Tool(
+                name=IDATools.RENAME_MULTI_LOCAL_VARIABLES,
+                description="Rename multiple local variables within a function at once in the IDA database",
+                inputSchema=RenameMultiLocalVariables.schema(),
+            ),
+            Tool(
+                name=IDATools.RENAME_MULTI_GLOBAL_VARIABLES,
+                description="Rename multiple global variables at once in the IDA database", 
+                inputSchema=RenameMultiGlobalVariables.schema(),
+            ),
+            Tool(
+                name=IDATools.RENAME_MULTI_FUNCTIONS,
+                description="Rename multiple functions at once in the IDA database",
+                inputSchema=RenameMultiFunctions.schema(), 
+            ),
+            Tool(
                 name=IDATools.ADD_ASSEMBLY_COMMENT,
                 description="Add a comment at a specific address in the assembly view of the IDA database",
                 inputSchema=AddAssemblyComment.schema(),
@@ -972,6 +1105,34 @@ async def serve() -> None:
                     result: str = ida_functions.rename_function(
                         arguments["old_name"], 
                         arguments["new_name"]
+                    )
+                    return [TextContent(
+                        type="text",
+                        text=result
+                    )]
+
+                case IDATools.RENAME_MULTI_LOCAL_VARIABLES:
+                    result: str = ida_functions.rename_multi_local_variables(
+                        arguments["function_name"],
+                        arguments["rename_pairs_old2new"]
+                    )
+                    return [TextContent(
+                        type="text",
+                        text=result
+                    )]
+
+                case IDATools.RENAME_MULTI_GLOBAL_VARIABLES:
+                    result: str = ida_functions.rename_multi_global_variables(
+                        arguments["rename_pairs_old2new"]
+                    )
+                    return [TextContent(
+                        type="text",
+                        text=result
+                    )]
+
+                case IDATools.RENAME_MULTI_FUNCTIONS:
+                    result: str = ida_functions.rename_multi_functions(
+                        arguments["rename_pairs_old2new"]
                     )
                     return [TextContent(
                         type="text",

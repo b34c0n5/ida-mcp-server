@@ -542,6 +542,126 @@ class IDAMCPCore:
             return {"success": False, "message": str(e)}
     
     @idawrite
+    def rename_multi_local_variables(self, function_name: str, rename_pairs_old2new: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Rename multiple local variables within a function at once"""
+        try:
+            success_count: int = 0
+            failed_pairs: List[Dict[str, str]] = []
+    
+            for pair in rename_pairs_old2new:
+                old_name = next(iter(pair.keys()))
+                new_name = pair[old_name]
+                
+                # Call existing rename_local_variable_internal for each pair
+                result = self._rename_local_variable_internal(function_name, old_name, new_name)
+                
+                if result.get("success", False):
+                    success_count += 1
+                else:
+                    failed_pairs.append({
+                        "old_name": old_name,
+                        "new_name": new_name,
+                        "error": result.get("message", "Unknown error")
+                    })
+    
+            return {
+                "success": True,
+                "message": f"Renamed {success_count} out of {len(rename_pairs_old2new)} local variables",
+                "success_count": success_count,
+                "failed_pairs": failed_pairs
+            }
+    
+        except Exception as e:
+            print(f"Error in rename_multi_local_variables: {str(e)}")
+            traceback.print_exc()
+            return {
+                "success": False,
+                "message": str(e),
+                "success_count": 0,
+                "failed_pairs": rename_pairs_old2new
+            }
+    
+    @idawrite
+    def rename_multi_global_variables(self, rename_pairs_old2new: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Rename multiple global variables at once"""
+        try:
+            success_count: int = 0
+            failed_pairs: List[Dict[str, str]] = []
+    
+            for pair in rename_pairs_old2new:
+                old_name = next(iter(pair.keys()))
+                new_name = pair[old_name]
+                
+                # Call existing rename_global_variable_internal for each pair
+                result = self._rename_global_variable_internal(old_name, new_name)
+                
+                if result.get("success", False):
+                    success_count += 1
+                else:
+                    failed_pairs.append({
+                        "old_name": old_name,
+                        "new_name": new_name,
+                        "error": result.get("message", "Unknown error")
+                    })
+    
+            return {
+                "success": True,
+                "message": f"Renamed {success_count} out of {len(rename_pairs_old2new)} global variables",
+                "success_count": success_count,
+                "failed_pairs": failed_pairs
+            }
+    
+        except Exception as e:
+            print(f"Error in rename_multi_global_variables: {str(e)}")
+            traceback.print_exc()
+            return {
+                "success": False,
+                "message": str(e),
+                "success_count": 0,
+                "failed_pairs": rename_pairs_old2new
+            }
+    
+    @idawrite
+    def rename_multi_functions(self, rename_pairs_old2new: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Rename multiple functions at once"""
+        try:
+            success_count: int = 0
+            failed_pairs: List[Dict[str, str]] = []
+    
+            for pair in rename_pairs_old2new:
+                old_name = next(iter(pair.keys()))
+                new_name = pair[old_name]
+                
+                # Call existing rename_function_internal for each pair
+                result = self._rename_function_internal(old_name, new_name)
+                
+                if result.get("success", False):
+                    success_count += 1
+                else:
+                    failed_pairs.append({
+                        "old_name": old_name,
+                        "new_name": new_name,
+                        "error": result.get("message", "Unknown error")
+                    })
+    
+            return {
+                "success": True,
+                "message": f"Renamed {success_count} out of {len(rename_pairs_old2new)} functions",
+                "success_count": success_count,
+                "failed_pairs": failed_pairs
+            }
+    
+        except Exception as e:
+            print(f"Error in rename_multi_functions: {str(e)}")
+            traceback.print_exc()
+            return {
+                "success": False,
+                "message": str(e),
+                "success_count": 0,
+                "failed_pairs": rename_pairs_old2new
+            }
+    
+    @idawrite
     def add_function_comment(self, function_name: str, comment: str, is_repeatable: bool) -> Dict[str, Any]:
         """Add a comment to a function"""
         return self._add_function_comment_internal(function_name, comment, is_repeatable)
