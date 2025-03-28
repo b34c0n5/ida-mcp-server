@@ -32,8 +32,13 @@ python -m mcp_server_ida
 
 ### IDA-Side
 
-Copy repository/plugin/ida_mcp_server_plugin.py into IDAs plugin directory (`~/.idapro/plugins`).
+Copy `repository/plugin/ida_mcp_server_plugin.py` and `repository/plugin/ida_mcp_server_plugin` directory into IDAs plugin directory 
 
+Windows: `%APPDATA%\Hex-Rays\IDA Pro\plugins`
+
+Linux/macOS: `$HOME/.idapro/plugins` eg: `~/.idapro/plugins`
+
+[igors-tip-of-the-week-103-sharing-plugins-between-ida-installs](https://hex-rays.com/blog/igors-tip-of-the-week-103-sharing-plugins-between-ida-installs)
 
 ## Configuration
 
@@ -106,7 +111,7 @@ If you are doing local development, there are two ways to test your changes:
     "command": "uv",
     "args": [ 
       "--directory",
-      "/<path to mcp-server-ida>/src",
+      "/<path to mcp-server-ida>",
       "run",
       "mcp-server-ida"
     ]
