@@ -116,8 +116,11 @@ If you are doing local development, there are two ways to test your changes:
 
 ## Alternatives
 [ida-pro-mcp](https://github.com/mrexodia/ida-pro-mcp)
+
 [ida-mcp-server-plugin](https://github.com/taida957789/ida-mcp-server-plugin)
+
 [mcp-server-idapro](https://github.com/fdrechsler/mcp-server-idapro)
+
 [pcm](https://github.com/rand-tech/pcm)
 
 
