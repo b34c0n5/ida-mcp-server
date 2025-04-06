@@ -149,6 +149,10 @@ class IDAMCPCore:
         try:
             # Get function object
             func = ida_funcs.get_func(address)
+            
+            # Get function name
+            func_name = idaapi.get_func_name(func.start_ea)
+            
             if not func:
                 return {"error": f"Invalid function at {hex(address)}"}
             
@@ -161,7 +165,7 @@ class IDAMCPCore:
             if not assembly_lines:
                 return {"error": "No assembly instructions found"}
                 
-            return {"assembly": "\n".join(assembly_lines)}
+            return {"assembly": "\n".join(assembly_lines), "function_name": func_name}
         except Exception as e:
             print(f"Error getting function assembly: {str(e)}")
             traceback.print_exc()
