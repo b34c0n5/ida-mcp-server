@@ -51,7 +51,7 @@ Add this to your `claude_desktop_config.json`:
 
 ```json
 "mcpServers": {
-  "git": {
+  "ida": {
     "command": "uvx",
     "args": [
         "mcp-server-ida"
@@ -66,7 +66,7 @@ Add this to your `claude_desktop_config.json`:
 
 ```json
 "mcpServers": {
-  "git": {
+  "ida": {
     "command": "python",
     "args": [
         "-m", 
@@ -107,7 +107,7 @@ If you are doing local development, there are two ways to test your changes:
 ```json
 {
 "mcpServers": {
-  "git": {
+  "ida": {
     "command": "uv",
     "args": [ 
       "--directory",
